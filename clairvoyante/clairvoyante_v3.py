@@ -59,13 +59,14 @@ class Clairvoyante(object):
                                      activation=selu.selu,
                                      name='conv1')
             self.conv1 = conv1
+            # print(conv1.shape)
 
             pool1 = tf.layers.max_pooling2d(inputs=conv1,
                                             pool_size=self.pollSize1,
                                             strides=1,
                                             name='pool1')
             self.pool1 = pool1
-
+            # print(pool1.shape)
             conv2 = tf.layers.conv2d(inputs=pool1,
                                      filters=self.numFeature2,
                                      kernel_size=self.kernelSize2,
@@ -74,12 +75,14 @@ class Clairvoyante(object):
                                      activation=selu.selu,
                                      name='conv2')
             self.conv2 = conv2
+            # print(conv2.shape)
 
             pool2 = tf.layers.max_pooling2d(inputs=conv2,
                                             pool_size=self.pollSize2,
                                             strides=1,
                                             name='pool2')
             self.pool2 = pool2
+            # print(pool2.shape)
 
             conv3 = tf.layers.conv2d(inputs=pool2,
                                      filters=self.numFeature3,
@@ -89,17 +92,20 @@ class Clairvoyante(object):
                                      activation=selu.selu,
                                      name='conv3')
             self.conv3 = conv3
+            # print(conv3.shape)
 
             pool3 = tf.layers.max_pooling2d(inputs=conv3,
                                             pool_size=self.pollSize3,
                                             strides=1,
                                             name='pool3')
             self.pool3 = pool3
+            # print(pool3.shape)
 
             flat_size = ( self.inputShape[0] - (self.pollSize1[0] - 1) - (self.pollSize2[0] - 1) - (self.pollSize3[0] - 1))
             flat_size *= ( self.inputShape[1] - (self.pollSize1[1] - 1) - (self.pollSize2[1] - 1) - (self.pollSize3[1] - 1))
             flat_size *= self.numFeature3
             conv3_flat =  tf.reshape(pool3, [-1,  flat_size])
+            # print(conv3_flat.shape)
 
             fc4 = tf.layers.dense(inputs=conv3_flat,
                                  units=self.hiddenLayerUnits4,
@@ -107,6 +113,7 @@ class Clairvoyante(object):
                                  activation=selu.selu,
                                  name='fc4')
             self.fc4 = fc4
+            # print(fc4.shape)
 
             dropout4 = selu.dropout_selu(fc4, dropoutRateFC4PH, training=phasePH, name='dropout4')
             self.dropout4 = dropout4
@@ -117,37 +124,69 @@ class Clairvoyante(object):
                                  activation=selu.selu,
                                  name='fc5')
             self.fc5 = fc5
+            # print(fc5.shape)
 
             dropout5 = selu.dropout_selu(fc5, dropoutRateFC5PH, training=phasePH, name='dropout5')
             self.dropout5 = dropout5
 
             epsilon = tf.constant(value=1e-10)
+
             YBaseChangeSigmoid = tf.layers.dense(inputs=dropout4, units=self.outputShape1[0], activation=tf.nn.sigmoid, name='YBaseChangeSigmoid')
             self.YBaseChangeSigmoid = YBaseChangeSigmoid
+            # print(YBaseChangeSigmoid.shape)
+
             YZygosityFC = tf.layers.dense(inputs=dropout5, units=self.outputShape2[0], activation=selu.selu, name='YZygosityFC')
             YZygosityLogits = tf.add(YZygosityFC, epsilon, name='YZygosityLogits')
             YZygositySoftmax = tf.nn.softmax(YZygosityLogits, name='YZygositySoftmax')
             self.YZygositySoftmax = YZygositySoftmax
+            # print(YZygositySoftmax.shape)
+
             YVarTypeFC = tf.layers.dense(inputs=dropout5, units=self.outputShape3[0], activation=selu.selu, name='YVarTypeFC')
             YVarTypeLogits = tf.add(YVarTypeFC, epsilon, name='YVarTypeLogits')
             YVarTypeSoftmax = tf.nn.softmax(YVarTypeLogits, name='YVarTypeSoftmax')
             self.YVarTypeSoftmax = YVarTypeSoftmax
+            # print(YVarTypeSoftmax.shape)
+
             YIndelLengthFC = tf.layers.dense(inputs=dropout5, units=self.outputShape4[0], activation=selu.selu, name='YIndelLengthFC')
             YIndelLengthLogits = tf.add(YIndelLengthFC, epsilon, name='YIndelLengthLogits')
             YIndelLengthSoftmax = tf.nn.softmax(YIndelLengthLogits, name='YIndelLengthSoftmax')
             self.YIndelLengthSoftmax = YIndelLengthSoftmax
-
+            # print(YIndelLengthSoftmax.shape)
+            # print(YPH.shape)
+            print(YBaseChangeSigmoid)
+            print(tf.slice(YPH,[0,0],[-1,self.outputShape1[0]])
             loss1 = tf.reduce_sum(tf.pow(YBaseChangeSigmoid - tf.slice(YPH,[0,0],[-1,self.outputShape1[0]], name='YBaseChangeGetTruth'), 2, name='YBaseChangeMSE'), name='YBaseChangeReduceSum')
+            print("Loss1: "+str(loss1)+"\n")
+
+            print(YZygosityLogits)
+            print(YZygosityCrossEntropy)
+            print(tf.slice(YPH, [0,self.outputShape1[0]], [-1,self.outputShape2[0]]))
             YZygosityCrossEntropy = tf.nn.log_softmax(YZygosityLogits, name='YZygosityLogSoftmax')\
                                     * -tf.slice(YPH, [0,self.outputShape1[0]], [-1,self.outputShape2[0]], name='YZygosityGetTruth')
             loss2 = tf.reduce_sum(YZygosityCrossEntropy, name='YZygosityReduceSum')
+            print("Loss2: "+str(loss2)+"\n")
+
+
+            print(YVarTypeLogits)
+            print(YVarTypeCrossEntropy)
+            print(tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]))
             YVarTypeCrossEntropy = tf.nn.log_softmax(YVarTypeLogits, name='YVarTypeLogSoftmax')\
                                    * -tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]], [-1,self.outputShape3[0]], name='YVarTypeGetTruth')
             loss3 = tf.reduce_sum(YVarTypeCrossEntropy, name='YVarTypeReduceSum')
+            print("Loss3: " + str(loss3)+"\n")
+
+            print(YIndelLengthLogits)
+            print(YIndelLengthCrossEntropy)
+            print(tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]+self.outputShape3[0]], [-1,self.outputShape4[0]]))
             YIndelLengthCrossEntropy = tf.nn.log_softmax(YIndelLengthLogits, name='YIndelLengthLogSoftmax')\
                                        * -tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]+self.outputShape3[0]], [-1,self.outputShape4[0]], name='YIndelLengthGetTruth')
             loss4 = tf.reduce_sum(YIndelLengthCrossEntropy, name='YIndelLengthReduceSum')
+            print("Loss4: " + str(loss4)+"\n")
+
             lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name ]) * l2RegularizationLambdaPH
+            print("LossL2: " + str(lossL2)+"\n")
+
+
             loss = loss1 + loss2 + loss3 + loss4 + lossL2
             self.loss = loss
 
@@ -267,6 +306,7 @@ class Clairvoyante(object):
         return base, zygosity, varType, indelLength
 
     def predictNoRT(self, XArray):
+        print(XArray.shape)
         #for i in range(len(batchX)):
         #    tf.image.per_image_standardization(XArray[i])
         self.predictBaseRTVal = None; self.predictZygosityRTVal = None; self.predictVarTypeRTVal = None; self.predictIndelLengthRTVal = None
@@ -281,4 +321,3 @@ class Clairvoyante(object):
 
     def __del__(self):
         self.session.close()
-
