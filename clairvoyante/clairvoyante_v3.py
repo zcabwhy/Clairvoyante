@@ -154,7 +154,7 @@ class Clairvoyante(object):
             # print(YIndelLengthSoftmax.shape)
             # print(YPH.shape)
             print(YBaseChangeSigmoid)
-            print(tf.slice(YPH,[0,0],[-1,self.outputShape1[0]])
+            print(tf.slice(YPH,[0,0],[-1,self.outputShape1[0]]))
             loss1 = tf.reduce_sum(tf.pow(YBaseChangeSigmoid - tf.slice(YPH,[0,0],[-1,self.outputShape1[0]], name='YBaseChangeGetTruth'), 2, name='YBaseChangeMSE'), name='YBaseChangeReduceSum')
             print("Loss1: "+str(loss1)+"\n")
 
@@ -169,7 +169,7 @@ class Clairvoyante(object):
 
             print(YVarTypeLogits)
             print(YVarTypeCrossEntropy)
-            print(tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]))
+            print(tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]]))
             YVarTypeCrossEntropy = tf.nn.log_softmax(YVarTypeLogits, name='YVarTypeLogSoftmax')\
                                    * -tf.slice(YPH, [0,self.outputShape1[0]+self.outputShape2[0]], [-1,self.outputShape3[0]], name='YVarTypeGetTruth')
             loss3 = tf.reduce_sum(YVarTypeCrossEntropy, name='YVarTypeReduceSum')
